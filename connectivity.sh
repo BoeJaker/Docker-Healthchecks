@@ -1,10 +1,35 @@
 #!/bin/sh
-# This script performs the health check logic for container's accessability
+# This script performs the health check logic for inbound and outbound connectivity.
+# It pings the specified URL
 
-# Specify the container's port to check via arguments/parameters
-container_port="$1"
+# Parse command-line arguments
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        # The URL to check outbound connectivity, default is google
+        --url)
+            url="$2"
+            shift
+            ;;
+        # The port to check inbound connectivity, default is to ping all open ports
+        --port)
+            port="$2"
+            shift
+            ;;
+        # Unknown option
+        *)
+            echo "Unknown option: $key"
+            exit 1
+            ;;
+    esac
+    shift
+done
 
-# If port supplied check that port
+# Check external connectivity by sending an HTTP GET request
+[ ! -z "$url" ] && { url="www.google.com" }
+[ curl --head --silent --fail "$url" > /dev/null ] || exit 1
+
+# If port supplied check that port for inbound connectivity
 if [ ! -z "$container_port" ] ; then
   # Check if the container's port is accessible
   if nc -z -w5 0.0.0.0 "$container_port"; then
@@ -12,7 +37,7 @@ if [ ! -z "$container_port" ] ; then
   else
     exit 1  # Container is not reachable from the outside
   fi
-# If no port is supplied check all ports reporting as up  
+# If no port is supplied check all ports for inbound connectivity
 else
   if \
     lsof -i -P -n | \
